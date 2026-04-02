@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    /* 基礎設定 */
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ESNext"],
+    "types": ["node"],
+    
+    /* 檔案輸出路徑 (編譯後會放在 dist) */
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "sourceMap": true,
+    
+    /* 嚴謹度與相容性 */
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "moduleDetection": "force"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
