@@ -1,112 +1,138 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+// 🌟 現在這裡的 MapShop 就能被正確識別了
+import MapProvider, { MapShop } from '@/components/MapProvider'; 
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Star, MapPin, X } from 'lucide-react-native';
+import { Colors } from '@/constants/Colors';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+// 模擬資料：符合 MapShop 介面
+const MOCK_SHOPS: MapShop[] = [
+  { 
+    id: 1, 
+    name: 'Ink & Soul Tattoo', 
+    rating: 4.9, 
+    dist: '450m', 
+    coordinate: { latitude: 25.033, longitude: 121.543 }, 
+    image: 'https://images.unsplash.com/photo-1598300042247-d088f54e4ee1?w=400' 
+  },
+];
 
-export default function TabTwoScreen() {
+export default function ExploreScreen() {
+  // 將狀態型別設定為 MapShop 或 null
+  const [selectedShop, setSelectedShop] = useState<MapShop | null>(null);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      {/* 🌟 現在這裡傳入 shops 與 onMarkerPress 不再會噴錯 */}
+      <MapProvider shops={MOCK_SHOPS} onMarkerPress={setSelectedShop} />
+
+      {/* 圖釘快速預覽卡片 */}
+      {selectedShop && (
+        <View style={styles.quickView}>
+          <TouchableOpacity 
+            style={styles.closeBtn} 
+            onPress={() => setSelectedShop(null)}
+            activeOpacity={0.7}
+          >
+            <X size={20} color={Colors.stone[400]} />
+          </TouchableOpacity>
+          
+          <View style={styles.shopCard}>
+            <Image 
+              source={{ uri: selectedShop.image }} 
+              style={styles.shopImg} 
+              contentFit="cover"
+              transition={300}
+            />
+            <View style={styles.shopInfo}>
+              <Text style={styles.shopName} numberOfLines={1}>
+                {selectedShop.name}
+              </Text>
+              
+              <View style={styles.shopMeta}>
+                <Star size={12} color={Colors.amber400} fill={Colors.amber400} />
+                <Text style={styles.metaText}>
+                  {selectedShop.rating} · 距 {selectedShop.dist}
+                </Text>
+              </View>
+              
+              <TouchableOpacity style={styles.bookBtn} activeOpacity={0.8}>
+                <Text style={styles.bookBtnText}>查看詳情</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: { 
+    flex: 1,
+    backgroundColor: Colors.stone[50] 
   },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
+  quickView: { 
+    position: 'absolute', 
+    bottom: 120, 
+    left: 20, 
+    right: 20, 
+    backgroundColor: 'white', 
+    borderRadius: 24, 
+    padding: 16, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1, 
+    shadowRadius: 15, 
+    elevation: 5 
   },
+  shopCard: { 
+    flexDirection: 'row', 
+    gap: 16 
+  },
+  shopImg: { 
+    width: 80, 
+    height: 80, 
+    borderRadius: 16,
+    backgroundColor: Colors.stone[100]
+  },
+  shopInfo: { 
+    flex: 1, 
+    justifyContent: 'space-between' 
+  },
+  shopName: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    color: Colors.stone[800] 
+  },
+  shopMeta: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 4 
+  },
+  metaText: { 
+    fontSize: 12, 
+    color: Colors.stone[400],
+    fontWeight: '500'
+  },
+  bookBtn: { 
+    backgroundColor: Colors.stone[900], 
+    paddingVertical: 8, 
+    paddingHorizontal: 16, 
+    borderRadius: 12, 
+    alignSelf: 'flex-start' 
+  },
+  bookBtnText: { 
+    color: 'white', 
+    fontSize: 12, 
+    fontWeight: 'bold' 
+  },
+  closeBtn: { 
+    position: 'absolute', 
+    top: 12, 
+    right: 12, 
+    zIndex: 10,
+    padding: 4
+  }
 });
