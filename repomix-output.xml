@@ -92,7 +92,11 @@ assets/images/react-logo.png
 assets/images/react-logo@2x.png
 assets/images/react-logo@3x.png
 assets/images/splash-icon.png
+backend/.env
 backend/package.json
+backend/src/config/database.ts
+backend/src/controllers/merchantController.ts
+backend/src/index.ts
 backend/tsconfig.json
 components/external-link.tsx
 components/haptic-tab.tsx
@@ -119,6 +123,52 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path=".gitignore">
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+# generated native folders
+/ios
+/android
+</file>
 
 <file path="admin/.gitignore">
 # Logs
@@ -745,132 +795,6 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
 })
-</file>
-
-<file path="backend/package.json">
-{
-  "name": "backend",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "bcrypt": "^6.0.0",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.0",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.20.0"
-  },
-  "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^25.5.0",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.2"
-  }
-}
-</file>
-
-<file path="backend/tsconfig.json">
-{
-  // Visit https://aka.ms/tsconfig to read more about this file
-  "compilerOptions": {
-    // File Layout
-    // "rootDir": "./src",
-    // "outDir": "./dist",
-
-    // Environment Settings
-    // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
-    "target": "esnext",
-    "types": [],
-    // For nodejs:
-    // "lib": ["esnext"],
-    // "types": ["node"],
-    // and npm install -D @types/node
-
-    // Other Outputs
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
-
-    // Stricter Typechecking Options
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-
-    // Style Options
-    // "noImplicitReturns": true,
-    // "noImplicitOverride": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
-    // "noFallthroughCasesInSwitch": true,
-    // "noPropertyAccessFromIndexSignature": true,
-
-    // Recommended Options
-    "strict": true,
-    "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
-  }
-}
-</file>
-
-<file path=".gitignore">
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
-node_modules/
-
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# generated native folders
-/ios
-/android
 </file>
 
 <file path="app.json">
@@ -2717,6 +2641,121 @@ const styles = StyleSheet.create({
 
 </file>
 
+<file path="backend/package.json">
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "GO PRIME 隔離後端伺服器",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.0",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.20.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.5.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}
+</file>
+
+<file path="backend/src/config/database.ts">
+// backend/src/config/database.ts
+import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+// 建立與 MySQL 的連線池
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || '127.0.0.1',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME || 'go_prime',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+export default pool;
+</file>
+
+<file path="backend/src/controllers/merchantController.ts">
+// backend/controllers/merchantController.ts
+import type { Request, Response } from 'express'; // 🌟 匯入型別必須加 type
+import pool from '../config/database.js';         // 🌟 本地檔案匯入必須加 .js
+import bcrypt from 'bcrypt';
+
+export const submitApplication = async (req: Request, res: Response) => {
+  const { shopName, category, phone, email, lineId, igLink } = req.body;
+  
+  try {
+    // 檢查必填
+    if (!shopName || !phone || !email) {
+      res.status(400).json({ message: '店名、電話與 Email 為必填項目' });
+      return;
+    }
+
+    const [result] = await pool.execute(
+      'INSERT INTO merchant_applications (shop_name, category, phone, email, line_id, ig_link) VALUES (?, ?, ?, ?, ?, ?)',
+      [shopName, category, phone, email, lineId || null, igLink || null]
+    );
+
+    res.status(201).json({ message: 'Success', id: (result as any).insertId });
+  } catch (error) {
+    console.error('Database Error:', error);
+    res.status(500).json({ message: 'Database Error', error });
+  }
+};
+</file>
+
+<file path="backend/tsconfig.json">
+{
+  "compilerOptions": {
+    /* 基礎設定 */
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ESNext"],
+    "types": ["node"],
+    
+    /* 檔案輸出路徑 (編譯後會放在 dist) */
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "sourceMap": true,
+    
+    /* 嚴謹度與相容性 */
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "moduleDetection": "force"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+</file>
+
 <file path="components/external-link.tsx">
 import { Href, Link } from 'expo-router';
 import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
@@ -4125,6 +4164,15 @@ const styles = StyleSheet.create({
 });
 </file>
 
+<file path="backend/.env">
+PORT=3002
+DB_HOST=127.0.0.1
+DB_USER=root
+DB_PASSWORD=@78F687aw
+DB_NAME=go_prime
+JWT_SECRET=GO_PRIME_2026_SECRET_KEY
+</file>
+
 <file path="package.json">
 {
   "name": "go-prime",
@@ -4177,6 +4225,52 @@ const styles = StyleSheet.create({
   },
   "private": true
 }
+</file>
+
+<file path="backend/src/index.ts">
+// backend/src/index.ts
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { submitApplication } from './controllers/merchantController.js';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3002;
+
+app.use(cors());
+app.use(express.json());
+
+// 🌟 1. 加入一個簡單的 Request Logger (Debug 用)
+// 這會在你的 PM2 日誌裡顯示 Node.js 到底收到了什麼路徑
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// 🌟 2. 終極兼容路由：不管 Nginx 怎麼丟，這三個路徑我們都接住
+const statusHandler = (req: any, res: any) => {
+  res.send('GO PRIME 隔離伺服器運行中 🚀 (v1.0.1)');
+};
+
+// 同時接住 /、/api/prime 與 /api/prime/
+app.get('/', statusHandler);
+app.get('/api/prime', statusHandler);
+app.get('/api/prime/', statusHandler);
+
+// 🌟 3. API 路由設定 (同樣採全路徑寫法，避免 Router 匹配失敗)
+app.post('/api/prime/apply', submitApplication);
+
+app.listen(PORT, () => {
+  console.log(`
+  ==========================================
+  ✅ GO PRIME 後端已啟動
+  📡 內網埠號: ${PORT}
+  🔗 外網對接: https://eats-api.goverce.com/api/prime
+  ==========================================
+  `);
+});
 </file>
 
 </files>
