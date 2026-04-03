@@ -27,18 +27,11 @@ const statusHandler = (req: any, res: any) => {
   res.send('GO PRIME 隔離伺服器運行中 🚀 (v1.1.0)');
 };
 app.get('/', statusHandler);
-app.get('/api/prime', statusHandler);
-app.get('/api/prime/', statusHandler);
 
 // ─── 商家申請 API ────────────────────────────────────────────
-// App 端：送出申請
-app.post('/api/prime/apply', submitApplication);
-
-// Admin 端：查詢列表（支援 ?status=pending）
-app.get('/api/prime/applications', getApplications);
-
-// Admin 端：審核（核准 or 拒絕）
-app.put('/api/prime/applications/:id/review', reviewApplication);
+app.post('/apply', submitApplication);
+app.get('/applications', getApplications);
+app.put('/applications/:id/review', reviewApplication);
 
 // ─── 啟動 ────────────────────────────────────────────────────
 app.listen(PORT, () => {
@@ -46,12 +39,12 @@ app.listen(PORT, () => {
   ==========================================
   ✅ GO PRIME 後端已啟動
   📡 內網埠號: ${PORT}
-  🔗 API Base: https://eats-api.goverce.com/api/prime
+  🔗 API Base: https://prime-api.goverce.com
   
   路由清單:
-  POST   /api/prime/apply
-  GET    /api/prime/applications?status=pending
-  PUT    /api/prime/applications/:id/review
+  POST   /apply
+  GET    /applications?status=pending
+  PUT    /applications/:id/review
   ==========================================
   `);
 });
