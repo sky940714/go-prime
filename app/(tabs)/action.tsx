@@ -1,20 +1,27 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  TextInput, Dimensions, Platform, Modal, FlatList 
+  TextInput, Dimensions, Platform
 } from 'react-native';
 import { router } from 'expo-router';
 import { 
-  X, Sparkles, Palette, Activity, Zap, Pen, Clock, 
-  User, Users, DollarSign, ChevronRight, Check, MapPin, 
-  Search, ChevronDown, Calendar as CalendarIcon 
+  X, Sparkles, Palette, Zap, Clock, 
+  User, DollarSign, ChevronRight, ChevronLeft, MapPin, 
+  Search, CheckCircle2
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import Animated, { 
+  FadeInRight, 
+  FadeOutLeft, 
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring
+} from 'react-native-reanimated';
 import { Colors } from '@/constants/Colors';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-// 1. 台北捷運站點資料庫
+// ─── 資料定義 ───────────────────────────────────────────────
 const TAIPEI_METRO_STATIONS = [
   '台北車站', '中山', '西門', '東區/忠孝復興', '市政府', '信義安和', 
   '南京復興', '公館', '板橋', '淡水', '松山', '內湖', '行天宮', '古亭'
@@ -29,307 +36,335 @@ const SERVICE_OPTIONS = {
 
 const BUDGET_RANGES = [
   '500 內', '500 - 1,000', '1,000 - 2,000', '2,000 - 3,500', 
-  '3,500 - 5,500', '5,500 - 8,000', '8,000 - 12,000', '12,000 - 20,000',
-  '20,000 - 150,000'
+  '3,500 - 5,500', '5,500 - 8,000', '8,000 - 12,000', '12,000 - 20,000'
 ];
 
 export default function ActionScreen() {
+  const [step, setStep] = useState(1);
+  const totalSteps = 6;
+
+  // 表單資料狀態
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [locationSearch, setLocationSearch] = useState('');
   const [selectedType, setSelectedType] = useState('美甲');
   const [selectedService, setSelectedService] = useState('');
-  const [locationSearch, setLocationSearch] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
   const [userGender, setUserGender] = useState('女生');
   const [designerPref, setDesignerPref] = useState('不限');
   const [timing, setTiming] = useState('今天');
-  const [customDate, setCustomDate] = useState('');
-  const [selectedBudget, setSelectedBudget] = useState('點選設定預算');
+  const [selectedBudget, setSelectedBudget] = useState('');
 
-  const [isBudgetVisible, setIsBudgetVisible] = useState(false);
-  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
-  const [isConfirmVisible, setIsConfirmVisible] = useState(false);
+  // 進度條動畫邏輯
+  const progressWidth = useSharedValue(1 / totalSteps);
+  useEffect(() => {
+    progressWidth.value = withSpring(step / totalSteps, { damping: 15 });
+  }, [step]);
 
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progressWidth.value * 100}%`,
+  }));
+
+  // 搜尋站點過濾
   const filteredStations = useMemo(() => {
     if (!locationSearch || selectedLocation === locationSearch) return [];
     return TAIPEI_METRO_STATIONS.filter(s => s.includes(locationSearch));
   }, [locationSearch, selectedLocation]);
 
-  const handleSelect = (setter: any, value: string, haptic = true) => {
-    if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setter(value);
+  const nextStep = () => {
+    if (step < totalSteps) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setStep(prev => prev + 1);
+    } else {
+      finalizeMatch();
+    }
+  };
+
+  const prevStep = () => {
+    if (step > 1) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setStep(prev => prev - 1);
+    } else {
+      router.back();
+    }
   };
 
   const finalizeMatch = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setIsConfirmVisible(false);
-    router.push('/match'); 
+    router.push({
+      pathname: '/match',
+      params: { location: selectedLocation, service: selectedService }
+    });
+  };
+
+  // ─── 渲染邏輯優化：改為單純的函數調用而非組件定義 ──────────────────
+
+  const renderStep = () => {
+    switch (step) {
+      case 1:
+        return (
+          <Animated.View key="step1" entering={FadeInRight} exiting={FadeOutLeft} style={styles.stepContent}>
+            <MapPin size={48} color={Colors.stone[900]} style={styles.iconHeader} />
+            <Text style={styles.mainTitle}>服務地點在哪？</Text>
+            <Text style={styles.subTitle}>選擇您方便前往的捷運站或地區</Text>
+            <View style={styles.searchContainer}>
+              <Search size={20} color={Colors.stone[400]} style={{ marginRight: 12 }} />
+              <TextInput 
+                style={styles.searchInput}
+                placeholder="搜尋台北捷運站..."
+                value={locationSearch}
+                onChangeText={setLocationSearch}
+                placeholderTextColor={Colors.stone[300]}
+              />
+            </View>
+            <ScrollView style={styles.listWrapper} showsVerticalScrollIndicator={false}>
+              {(locationSearch ? filteredStations : TAIPEI_METRO_STATIONS).map(station => (
+                <TouchableOpacity 
+                  key={station} 
+                  style={[styles.itemRow, selectedLocation === station && styles.itemRowActive]}
+                  onPress={() => {
+                    setSelectedLocation(station);
+                    setLocationSearch(station);
+                    Haptics.selectionAsync();
+                    setTimeout(nextStep, 250);
+                  }}
+                >
+                  <Text style={[styles.itemLabel, selectedLocation === station && styles.itemLabelActive]}>{station}</Text>
+                  {selectedLocation === station && <CheckCircle2 size={20} color={Colors.stone[900]} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        );
+      case 2:
+        return (
+          <Animated.View key="step2" entering={FadeInRight} exiting={FadeOutLeft} style={styles.stepContent}>
+            <Palette size={48} color={Colors.stone[900]} style={styles.iconHeader} />
+            <Text style={styles.mainTitle}>您想預約什麼？</Text>
+            <View style={styles.catGrid}>
+              {Object.keys(SERVICE_OPTIONS).map((name) => (
+                <TouchableOpacity
+                  key={name}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedType(name);
+                    setSelectedService('');
+                  }}
+                  style={[styles.catBtn, selectedType === name && styles.catBtnActive]}
+                >
+                  <Text style={[styles.catBtnText, selectedType === name && styles.catBtnTextActive]}>{name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.chipWrapper}>
+              {SERVICE_OPTIONS[selectedType as keyof typeof SERVICE_OPTIONS].map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  onPress={() => {
+                    setSelectedService(item);
+                    Haptics.selectionAsync();
+                  }}
+                  style={[styles.chip, selectedService === item && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, selectedService === item && styles.chipTextActive]}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        );
+      case 3:
+        return (
+          <Animated.View key="step3" entering={FadeInRight} exiting={FadeOutLeft} style={styles.stepContent}>
+            <User size={48} color={Colors.stone[900]} style={styles.iconHeader} />
+            <Text style={styles.mainTitle}>關於施作偏好</Text>
+            <Text style={styles.inputLabel}>您的性別</Text>
+            <View style={styles.segmentedControl}>
+              {['女生', '男生'].map((g) => (
+                <TouchableOpacity key={g} style={[styles.segmentBtn, userGender === g && styles.segmentBtnActive]} onPress={() => setUserGender(g)}>
+                  <Text style={[styles.segmentText, userGender === g && styles.segmentTextActive]}>{g}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[styles.inputLabel, { marginTop: 40 }]}>偏好施作人員</Text>
+            <View style={styles.segmentedControl}>
+              {['不限', '女性', '男性'].map((p) => (
+                <TouchableOpacity key={p} style={[styles.segmentBtn, designerPref === p && styles.segmentBtnActive]} onPress={() => setDesignerPref(p)}>
+                  <Text style={[styles.segmentText, designerPref === p && styles.segmentTextActive]}>{p}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        );
+      case 4:
+        return (
+          <Animated.View key="step4" entering={FadeInRight} exiting={FadeOutLeft} style={styles.stepContent}>
+            <Clock size={48} color={Colors.stone[900]} style={styles.iconHeader} />
+            <Text style={styles.mainTitle}>什麼時候方便？</Text>
+            <View style={styles.listContainer}>
+              {['今天', '明天', '本週末', '選擇其他日期'].map((item) => (
+                <TouchableOpacity 
+                  key={item} 
+                  style={[styles.bigItem, timing === item && styles.bigItemActive]}
+                  onPress={() => {
+                    setTiming(item);
+                    Haptics.selectionAsync();
+                  }}
+                >
+                  <Text style={[styles.bigItemText, timing === item && styles.bigItemTextActive]}>{item}</Text>
+                  <View style={[styles.radioCircle, timing === item && styles.radioCircleActive]} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        );
+      case 5:
+        return (
+          <Animated.View key="step5" entering={FadeInRight} exiting={FadeOutLeft} style={styles.stepContent}>
+            <DollarSign size={48} color={Colors.stone[900]} style={styles.iconHeader} />
+            <Text style={styles.mainTitle}>預算範圍</Text>
+            <Text style={styles.subTitle}>我們將依此為您過濾合適的店家</Text>
+            <View style={styles.budgetGrid}>
+              {BUDGET_RANGES.map((b) => (
+                <TouchableOpacity 
+                  key={b} 
+                  style={[styles.budgetBox, selectedBudget === b && styles.budgetBoxActive]}
+                  onPress={() => {
+                    setSelectedBudget(b);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setTimeout(nextStep, 250);
+                  }}
+                >
+                  <Text style={[styles.budgetText, selectedBudget === b && styles.budgetTextActive]}>{b}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        );
+      case 6:
+        return (
+          <Animated.View key="step6" entering={FadeInRight} exiting={FadeOutLeft} style={styles.stepContent}>
+            <Sparkles size={48} color={Colors.amber400} style={styles.iconHeader} />
+            <Text style={styles.mainTitle}>確認您的需求</Text>
+            <View style={styles.reviewCard}>
+              <ReviewRow icon={MapPin} label="地點" value={selectedLocation} />
+              <ReviewRow icon={Palette} label="服務" value={`${selectedType} / ${selectedService}`} />
+              <ReviewRow icon={User} label="偏好" value={`${userGender} / ${designerPref}施作人員`} />
+              <ReviewRow icon={Clock} label="時間" value={timing} />
+              <ReviewRow icon={DollarSign} label="預算" value={selectedBudget} isLast />
+            </View>
+            <Text style={styles.noticeText}>點擊確認後，系統將發送需求給附近的在線商家。</Text>
+          </Animated.View>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+      {/* 頂部導覽 */}
+      <View style={styles.navBar}>
+        <TouchableOpacity onPress={prevStep} style={styles.navBtn}>
+          <ChevronLeft size={28} color={Colors.stone[900]} />
+        </TouchableOpacity>
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressFill, progressStyle]} />
+        </View>
+        <TouchableOpacity onPress={() => router.back()} style={styles.navBtn}>
           <X size={24} color={Colors.stone[900]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>送出預約需求單</Text>
-        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <MapPin size={18} color={Colors.stone[900]} />
-            <Text style={styles.sectionLabel}>服務地點 (捷運站/地區)</Text>
-          </View>
-          <View style={styles.searchBox}>
-            <Search size={16} color={Colors.stone[400]} style={{ marginRight: 10 }} />
-            <TextInput 
-              style={styles.locationInput}
-              placeholder="搜尋台北捷運站..."
-              value={locationSearch}
-              onChangeText={setLocationSearch}
-              placeholderTextColor={Colors.stone[300]}
-            />
-          </View>
-          {filteredStations.length > 0 && (
-            <View style={styles.searchDropdown}>
-              {filteredStations.map(station => (
-                <TouchableOpacity 
-                  key={station} 
-                  style={styles.dropdownItem}
-                  onPress={() => {
-                    handleSelect(setSelectedLocation, station);
-                    setLocationSearch(station);
-                  }}
-                >
-                  <Text style={styles.dropdownText}>{station}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
+      {/* 步驟主體 - 直接調用渲染函數 */}
+      <View style={styles.mainBody}>
+        {renderStep()}
+      </View>
 
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Palette size={18} color={Colors.stone[900]} />
-            <Text style={styles.sectionLabel}>服務項目</Text>
-          </View>
-          <View style={styles.categoryGrid}>
-            {Object.keys(SERVICE_OPTIONS).map((name) => (
-              <TouchableOpacity
-                key={name}
-                onPress={() => { handleSelect(setSelectedType, name); setSelectedService(''); }}
-                style={[styles.typeBtn, selectedType === name && styles.typeBtnActive]}
-              >
-                <Text style={[styles.typeBtnText, selectedType === name && styles.typeBtnTextActive]}>{name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={[styles.chipContainer, { marginTop: 16 }]}>
-            {SERVICE_OPTIONS[selectedType as keyof typeof SERVICE_OPTIONS].map((item) => (
-              <TouchableOpacity
-                key={item}
-                onPress={() => handleSelect(setSelectedService, item)}
-                style={[styles.chip, selectedService === item && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, selectedService === item && styles.chipTextActive]}>{item}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* 🌟 修正後的區域 */}
-        <View style={styles.sectionCard}>
-          <View style={styles.flexRowBetween}>
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={styles.subLabel}>您的性別</Text>
-              <View style={styles.toggleRow}>
-                {['女生', '男生'].map((g) => (
-                  <TouchableOpacity 
-                    key={g} 
-                    style={[styles.toggleBtn, userGender === g && styles.toggleBtnActive]} 
-                    onPress={() => handleSelect(setUserGender, g)}
-                  >
-                    <Text style={[styles.toggleText, userGender === g && styles.toggleTextActive]}>{g}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-            <View style={{ flex: 1, marginLeft: 8 }}>
-              <Text style={styles.subLabel}>偏好人員</Text>
-              <View style={styles.toggleRow}>
-                {['不限', '女性', '男性'].map((p) => (
-                  <TouchableOpacity 
-                    key={p} 
-                    style={[styles.toggleBtn, designerPref === p && styles.toggleBtnActive]} 
-                    onPress={() => handleSelect(setDesignerPref, p)}
-                  >
-                    <Text style={[styles.toggleText, designerPref === p && styles.toggleTextActive]}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* 剩下的部分保持不變... */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Clock size={18} color={Colors.stone[900]} />
-            <Text style={styles.sectionLabel}>偏好時段</Text>
-          </View>
-          <View style={styles.timingRow}>
-            {['今天', '明天', '其他日期'].map((item) => (
-              <TouchableOpacity
-                key={item}
-                onPress={() => {
-                  handleSelect(setTiming, item);
-                  if (item === '其他日期') setIsDatePickerVisible(true);
-                }}
-                style={[styles.timingBtn, timing === item && styles.timingBtnActive]}
-              >
-                <Text style={[styles.timingText, timing === item && styles.timingTextActive]}>
-                  {item === '其他日期' && customDate ? customDate : item}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <DollarSign size={18} color={Colors.stone[900]} />
-            <Text style={styles.sectionLabel}>預算範圍</Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.budgetSelector} 
-            onPress={() => setIsBudgetVisible(true)}
-          >
-            <Text style={[styles.budgetText, selectedBudget === '點選設定預算' && { color: Colors.stone[300] }]}>
-              {selectedBudget}
-            </Text>
-            <ChevronDown size={20} color={Colors.stone[400]} />
-          </TouchableOpacity>
-        </View>
-
+      {/* 底部按鈕列 */}
+      <View style={styles.bottomNav}>
         <TouchableOpacity 
-          style={styles.submitBtn} 
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setIsConfirmVisible(true);
-          }}
+          style={[styles.primaryBtn, (step === 2 && !selectedService) && styles.primaryBtnDisabled]} 
+          onPress={nextStep}
+          disabled={step === 2 && !selectedService}
         >
-          <Text style={styles.submitBtnText}>確認發布需求</Text>
+          <Text style={styles.primaryBtnText}>
+            {step === totalSteps ? '發布需求並開始配對' : '繼續下一個步驟'}
+          </Text>
           <ChevronRight size={20} color={Colors.white} />
         </TouchableOpacity>
-      </ScrollView>
-
-      {/* 各種 Modal 設定... */}
-      <Modal visible={isConfirmVisible} transparent animationType="fade">
-        <View style={styles.modalOverlayCenter}>
-          <View style={styles.confirmCard}>
-            <Sparkles size={32} color={Colors.amber400} style={{ alignSelf: 'center', marginBottom: 16 }} />
-            <Text style={styles.confirmTitle}>確認您的需求內容</Text>
-            <View style={styles.summaryList}>
-              <Text style={styles.summaryItem}>📍 地點：{selectedLocation || '未指定'}</Text>
-              <Text style={styles.summaryItem}>✨ 項目：{selectedType} - {selectedService || '未填寫'}</Text>
-              <Text style={styles.summaryItem}>⏰ 時間：{timing === '其他日期' ? customDate : timing}</Text>
-              <Text style={styles.summaryItem}>💰 預算：{selectedBudget}</Text>
-            </View>
-            <TouchableOpacity style={styles.finalSubmitBtn} onPress={finalizeMatch}>
-              <Text style={styles.finalSubmitBtnText}>確認發布，開始配對</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setIsConfirmVisible(false)} style={{ marginTop: 16 }}>
-              <Text style={{ color: Colors.stone[400], textAlign: 'center', fontWeight: 'bold' }}>修改內容</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 預算與日期 Modal 保持不變... */}
-      <Modal visible={isBudgetVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.drawerContainer}>
-            <Text style={styles.drawerTitle}>預算金額區間</Text>
-            <ScrollView>{BUDGET_RANGES.map(b => (
-              <TouchableOpacity key={b} style={styles.drawerItem} onPress={() => { setSelectedBudget(b); setIsBudgetVisible(false); }}>
-                <Text style={[styles.drawerItemText, selectedBudget === b && styles.drawerItemTextActive]}>{b}</Text>
-              </TouchableOpacity>
-            ))}</ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </View>
     </View>
   );
 }
 
+// ─── 內部子元件 (移出主元件外以防重新渲染問題) ──────────────────────
+const ReviewRow = ({ icon: Icon, label, value, isLast }: any) => (
+  <View style={[styles.reviewRow, isLast && { borderBottomWidth: 0 }]}>
+    <View style={styles.reviewLabelGroup}>
+      <Icon size={16} color={Colors.stone[400]} />
+      <Text style={styles.reviewLabel}>{label}</Text>
+    </View>
+    <Text style={styles.reviewValue}>{value || '未填寫'}</Text>
+  </View>
+);
+
+// ─── 樣式表 ────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.stone[50] },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 20, backgroundColor: Colors.white },
-  headerTitle: { fontSize: 16, fontWeight: '900', color: Colors.stone[900] },
-  closeBtn: { padding: 8 },
-  scrollContent: { padding: 24, paddingBottom: 160 },
-  
-  sectionCard: { backgroundColor: Colors.white, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: Colors.stone[100], marginBottom: 16, elevation: 2 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  sectionLabel: { fontSize: 14, fontWeight: '900', color: Colors.stone[900], marginLeft: 8 },
-  subLabel: { fontSize: 12, fontWeight: '800', color: Colors.stone[400], marginBottom: 8, marginLeft: 4 },
-
-  // 🌟 補齊這段！
-  flexRowBetween: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center' 
+  container: { flex: 1, backgroundColor: Colors.white },
+  navBar: { 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
+    paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    height: 110, borderBottomWidth: 1, borderBottomColor: Colors.stone[50]
   },
-
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.stone[50], borderRadius: 16, paddingHorizontal: 16, height: 50 },
-  locationInput: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.stone[900] },
-  searchDropdown: { marginTop: 8, backgroundColor: Colors.stone[50], borderRadius: 12, overflow: 'hidden' },
-  dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: Colors.stone[100] },
-  dropdownText: { fontSize: 14, color: Colors.stone[800], fontWeight: '600' },
-
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  typeBtn: { flex: 1, minWidth: '22%', alignItems: 'center', backgroundColor: Colors.stone[50], paddingVertical: 10, borderRadius: 12 },
-  typeBtnActive: { backgroundColor: Colors.stone[900] },
-  typeBtnText: { fontSize: 13, fontWeight: '800', color: Colors.stone[400] },
-  typeBtnTextActive: { color: Colors.white },
-
-  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: Colors.stone[50] },
-  chipActive: { backgroundColor: Colors.stone[900] },
-  chipText: { fontSize: 13, fontWeight: '600', color: Colors.stone[500] },
-  chipTextActive: { color: Colors.white },
-
-  toggleRow: { flexDirection: 'row', backgroundColor: Colors.stone[50], borderRadius: 12, padding: 4 },
-  toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  toggleBtnActive: { backgroundColor: Colors.white, elevation: 1 },
-  toggleText: { fontSize: 12, fontWeight: '800', color: Colors.stone[300] },
-  toggleTextActive: { color: Colors.stone[900] },
-
-  budgetSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.stone[50], borderRadius: 16, padding: 16 },
-  budgetText: { fontSize: 16, fontWeight: '900', color: Colors.stone[900] },
-
-  timingRow: { flexDirection: 'row', gap: 8 },
-  timingBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: Colors.stone[50], alignItems: 'center' },
-  timingBtnActive: { backgroundColor: Colors.stone[900] },
-  timingText: { fontSize: 13, fontWeight: '800', color: Colors.stone[400] },
-  timingTextActive: { color: Colors.white },
-
-  submitBtn: { backgroundColor: Colors.stone[900], borderRadius: 20, height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10 },
-  submitBtnText: { color: Colors.white, fontSize: 16, fontWeight: '900' },
-
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
-  drawerContainer: { backgroundColor: Colors.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: height * 0.6 },
-  datePickerCard: { backgroundColor: Colors.white, borderRadius: 24, padding: 24 },
-  confirmCard: { backgroundColor: Colors.white, borderRadius: 32, padding: 24 },
-  confirmTitle: { fontSize: 20, fontWeight: '900', color: Colors.stone[900], textAlign: 'center', marginBottom: 20 },
-  summaryList: { backgroundColor: Colors.stone[50], borderRadius: 20, padding: 20, marginBottom: 24 },
-  summaryItem: { fontSize: 14, fontWeight: '700', color: Colors.stone[800], marginBottom: 12 },
-  finalSubmitBtn: { backgroundColor: Colors.stone[900], borderRadius: 18, height: 56, alignItems: 'center', justifyContent: 'center' },
-  finalSubmitBtnText: { color: Colors.white, fontSize: 16, fontWeight: '900' },
-  drawerTitle: { fontSize: 18, fontWeight: '900', color: Colors.stone[900], marginBottom: 16 },
-  drawerItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.stone[50] },
-  drawerItemText: { fontSize: 16, fontWeight: '700', color: Colors.stone[400] },
-  drawerItemTextActive: { color: Colors.stone[900], fontWeight: '900' }
+  navBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  progressTrack: { flex: 1, height: 6, backgroundColor: Colors.stone[100], borderRadius: 3, marginHorizontal: 15 },
+  progressFill: { height: '100%', backgroundColor: Colors.stone[900], borderRadius: 3 },
+  mainBody: { flex: 1 },
+  stepContent: { flex: 1, padding: 32 },
+  iconHeader: { marginBottom: 24 },
+  mainTitle: { fontSize: 30, fontWeight: '900', color: Colors.stone[900], marginBottom: 8, letterSpacing: -0.5 },
+  subTitle: { fontSize: 16, color: Colors.stone[400], marginBottom: 32, fontWeight: '500' },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.stone[50], borderRadius: 24, paddingHorizontal: 20, height: 64, marginBottom: 24 },
+  searchInput: { flex: 1, fontSize: 18, fontWeight: '700', color: Colors.stone[900] },
+  listWrapper: { flex: 1 },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: Colors.stone[50] },
+  itemRowActive: { backgroundColor: Colors.stone[50], paddingHorizontal: 16, borderRadius: 16, borderBottomWidth: 0 },
+  itemLabel: { fontSize: 17, fontWeight: '600', color: Colors.stone[500] },
+  itemLabelActive: { color: Colors.stone[900], fontWeight: '800' },
+  catGrid: { flexDirection: 'row', gap: 10, marginBottom: 28 },
+  catBtn: { flex: 1, paddingVertical: 14, borderRadius: 16, backgroundColor: Colors.stone[50], alignItems: 'center' },
+  catBtnActive: { backgroundColor: Colors.stone[900] },
+  catBtnText: { fontSize: 15, fontWeight: '800', color: Colors.stone[400] },
+  catBtnTextActive: { color: Colors.white },
+  chipWrapper: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  chip: { paddingHorizontal: 24, paddingVertical: 16, borderRadius: 18, backgroundColor: Colors.stone[50], borderWidth: 2, borderColor: 'transparent' },
+  chipActive: { borderColor: Colors.stone[900], backgroundColor: Colors.white },
+  chipText: { fontSize: 16, fontWeight: '700', color: Colors.stone[500] },
+  chipTextActive: { color: Colors.stone[900] },
+  inputLabel: { fontSize: 14, fontWeight: '800', color: Colors.stone[400], marginBottom: 16, marginLeft: 4, textTransform: 'uppercase' },
+  segmentedControl: { flexDirection: 'row', backgroundColor: Colors.stone[50], borderRadius: 20, padding: 6 },
+  segmentBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: 14 },
+  segmentBtnActive: { backgroundColor: Colors.white, elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8 },
+  segmentText: { fontSize: 16, fontWeight: '800', color: Colors.stone[300] },
+  segmentTextActive: { color: Colors.stone[900] },
+  listContainer: { gap: 14 },
+  bigItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, backgroundColor: Colors.stone[50], borderRadius: 24 },
+  bigItemActive: { backgroundColor: Colors.white, borderWidth: 2.5, borderColor: Colors.stone[900] },
+  bigItemText: { fontSize: 18, fontWeight: '700', color: Colors.stone[400] },
+  bigItemTextActive: { color: Colors.stone[900], fontWeight: '900' },
+  radioCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.stone[100] },
+  radioCircleActive: { borderColor: Colors.stone[900], borderWidth: 7 },
+  budgetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  budgetBox: { width: (width - 78) / 2, padding: 24, backgroundColor: Colors.stone[50], borderRadius: 24, alignItems: 'center' },
+  budgetBoxActive: { backgroundColor: Colors.stone[900] },
+  budgetText: { fontSize: 15, fontWeight: '800', color: Colors.stone[400] },
+  budgetTextActive: { color: Colors.white },
+  reviewCard: { backgroundColor: Colors.stone[50], borderRadius: 32, padding: 28, marginBottom: 28 },
+  reviewRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: Colors.stone[100] },
+  reviewLabelGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  reviewLabel: { fontSize: 14, fontWeight: '700', color: Colors.stone[400] },
+  reviewValue: { fontSize: 16, fontWeight: '800', color: Colors.stone[900] },
+  noticeText: { fontSize: 14, color: Colors.stone[400], textAlign: 'center', lineHeight: 22, paddingHorizontal: 20, fontWeight: '500' },
+  bottomNav: { padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 24, borderTopWidth: 1, borderTopColor: Colors.stone[50] },
+  primaryBtn: { backgroundColor: Colors.stone[900], height: 68, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  primaryBtnDisabled: { backgroundColor: Colors.stone[100] },
+  primaryBtnText: { color: Colors.white, fontSize: 18, fontWeight: '900' },
 });

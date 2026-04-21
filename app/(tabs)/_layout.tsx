@@ -43,6 +43,7 @@ export default function TabLayout() {
         name="action"
         options={{
           title: '', // 中央按鈕不顯示文字
+          tabBarStyle: { display: 'none' },
           tabBarIcon: () => (
             <View style={styles.centerButtonWrapper}>
               <View style={styles.centerButtonRing}>

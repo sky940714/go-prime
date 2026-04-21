@@ -18,7 +18,7 @@ import { Colors } from '@/constants/Colors';
 const { width } = Dimensions.get('window');
 
 // 🌟 你的後端 API Base URL
-const API_BASE = 'https://eats-api.goverce.com/api/prime';
+const API_BASE = 'https://prime-api.goverce.com';
 
 export default function MerchantApplyScreen() {
   const [step, setStep] = useState(1);

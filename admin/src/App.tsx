@@ -6,8 +6,7 @@ import {
   RefreshCw, Clock, AlertCircle,
 } from 'lucide-react';
 
-const API_BASE = 'https://eats-api.goverce.com/api/prime';
-
+const API_BASE = 'https://prime-api.goverce.com';
 // ─── 型別 ────────────────────────────────────────────────────
 interface Application {
   id: number;
